@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Event Manager — Participants</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<style>
+  :root {
+    --bg:#0f0f11; --surface:#1a1a1f; --surface2:#24242b; --border:#2e2e38;
+    --accent:#c8f135; --accent2:#7c5cfc; --text:#f0f0f0; --muted:#888899;
+    --breakfast:#f7b731; --coffee:#5f8af7; --dinner:#e84393;
+    --radius:14px; --font:'Syne',sans-serif; --mono:'DM Mono',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;padding:2rem 1.5rem 4rem;}
+
+  header{text-align:center;margin-bottom:2.5rem;}
+  header h1{font-size:clamp(2rem,5vw,3.5rem);font-weight:800;letter-spacing:-1px;line-height:1;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;background-clip:text;margin-bottom:.5rem;}
+  header p{color:var(--muted);font-size:.95rem;font-family:var(--mono);}
+
+  .stats{display:flex;gap:12px;justify-content:center;margin-bottom:2.5rem;flex-wrap:wrap;}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    padding:1rem 1.5rem;text-align:center;min-width:110px;}
+  .stat-card .num{font-size:2rem;font-weight:800;color:var(--accent);}
+  .stat-card .label{font-size:.75rem;color:var(--muted);font-family:var(--mono);margin-top:2px;}
+
+  .meals-legend{display:flex;gap:12px;justify-content:center;margin-bottom:2.5rem;flex-wrap:wrap;}
+  .meal-pill{display:flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;font-size:.8rem;font-family:var(--mono);border:1px solid;}
+  .meal-pill.breakfast{border-color:var(--breakfast);color:var(--breakfast);background:rgba(247,183,49,.1);}
+  .meal-pill.coffee{border-color:var(--coffee);color:var(--coffee);background:rgba(95,138,247,.1);}
+  .meal-pill.dinner{border-color:var(--dinner);color:var(--dinner);background:rgba(232,67,147,.1);}
+  .meal-dot{width:8px;height:8px;border-radius:50%;}
+  .breakfast .meal-dot{background:var(--breakfast);}
+  .coffee .meal-dot{background:var(--coffee);}
+  .dinner .meal-dot{background:var(--dinner);}
+
+  .toolbar{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:2.5rem;}
+  .btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:10px;
+    font-family:var(--mono);font-size:.82rem;font-weight:500;cursor:pointer;border:1px solid;transition:background .2s;}
+  .btn-scan{background:rgba(124,92,252,.15);border-color:var(--accent2);color:var(--accent2);}
+  .btn-scan:hover{background:rgba(124,92,252,.3);}
+  .btn-add{background:rgba(200,241,53,.1);border-color:var(--accent);color:var(--accent);}
+  .btn-add:hover{background:rgba(200,241,53,.22);}
+  .btn-export{background:rgba(95,138,247,.12);border-color:var(--coffee);color:var(--coffee);}
+  .btn-export:hover{background:rgba(95,138,247,.25);}
+
+  .section-title{font-size:.7rem;font-family:var(--mono);color:var(--muted);letter-spacing:3px;
+    text-transform:uppercase;margin-bottom:1.5rem;border-left:3px solid var(--accent);padding-left:10px;}
+
+  .cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:1.5rem;margin-bottom:3rem;}
+  .team-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:border-color .2s;}
+  .team-card:hover{border-color:var(--accent2);}
+  .card-header{padding:1.2rem 1.4rem 1rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;}
+  .team-name{font-size:1.1rem;font-weight:700;color:var(--text);margin-bottom:4px;}
+  .team-meta{font-size:.75rem;color:var(--muted);font-family:var(--mono);}
+  .size-badge{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-size:.72rem;font-family:var(--mono);color:var(--accent);white-space:nowrap;flex-shrink:0;}
+
+  .participant-row{display:flex;align-items:center;gap:12px;padding:.9rem 1.4rem;border-bottom:1px solid var(--border);}
+  .participant-row:last-child{border-bottom:none;}
+  .avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:.65rem;font-weight:700;flex-shrink:0;font-family:var(--mono);background:var(--surface2);color:var(--accent2);border:1px solid var(--border);}
+  .avatar.leader{background:rgba(124,92,252,.15);color:var(--accent2);border-color:var(--accent2);}
+  .p-info{flex:1;min-width:0;}
+  .p-name{font-size:.85rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px;}
+  .p-uni{font-size:.7rem;color:var(--muted);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .p-email{font-size:.68rem;color:var(--accent2);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .p-tags{display:flex;gap:5px;align-items:center;margin-top:4px;flex-wrap:wrap;}
+  .leader-tag{font-size:.6rem;background:rgba(124,92,252,.15);color:var(--accent2);border:1px solid var(--accent2);border-radius:4px;padding:1px 6px;font-family:var(--mono);}
+  .meal-dot-sm{width:7px;height:7px;border-radius:50%;display:inline-block;}
+  .meal-dot-sm.breakfast{background:var(--breakfast);}
+  .meal-dot-sm.coffee{background:var(--coffee);}
+  .meal-dot-sm.dinner{background:var(--dinner);}
+  .p-qr{background:#fff;border-radius:6px;padding:3px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+
+  .visitors-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem;margin-bottom:3rem;}
+  .visitor-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem 1.3rem;display:flex;gap:12px;align-items:flex-start;transition:border-color .2s;}
+  .visitor-card:hover{border-color:var(--accent);}
+  .visitor-card .avatar{width:38px;height:38px;font-size:.7rem;background:rgba(200,241,53,.1);color:var(--accent);border-color:rgba(200,241,53,.3);}
+  .visitor-info{flex:1;min-width:0;}
+  .visitor-name{font-weight:700;font-size:.9rem;margin-bottom:3px;}
+  .visitor-detail{font-size:.72rem;color:var(--muted);font-family:var(--mono);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .visitor-meals{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap;}
+  .meal-check{display:flex;align-items:center;gap:5px;font-size:.7rem;font-family:var(--mono);padding:3px 9px;border-radius:999px;border:1px solid;}
+  .meal-check svg{width:10px;height:10px;}
+  .meal-check.breakfast{border-color:rgba(247,183,49,.4);color:var(--breakfast);background:rgba(247,183,49,.08);}
+  .meal-check.coffee{border-color:rgba(95,138,247,.4);color:var(--coffee);background:rgba(95,138,247,.08);}
+  .meal-check.dinner{border-color:rgba(232,67,147,.4);color:var(--dinner);background:rgba(232,67,147,.08);}
+  .visitor-qr{background:#fff;border-radius:6px;padding:3px;flex-shrink:0;}
+
+  /* MODALS */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:100;align-items:center;justify-content:center;padding:1rem;}
+  .modal-overlay.open{display:flex;}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:18px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;padding:2rem;position:relative;}
+  .modal h2{font-size:1.2rem;font-weight:800;margin-bottom:1.5rem;color:var(--accent);}
+  .modal-close{position:absolute;top:1.2rem;right:1.2rem;background:var(--surface2);border:1px solid var(--border);color:var(--muted);width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;}
+  .modal-close:hover{color:var(--text);}
+
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+  .form-grid .full{grid-column:1/-1;}
+  .field label{display:block;font-size:.7rem;font-family:var(--mono);color:var(--muted);margin-bottom:5px;letter-spacing:1px;text-transform:uppercase;}
+  .field input,.field select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-family:var(--mono);font-size:.82rem;outline:none;transition:border-color .2s;}
+  .field input:focus,.field select:focus{border-color:var(--accent2);}
+  .field select option{background:var(--surface2);}
+  .meals-toggle{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1.5rem;}
+  .meal-toggle-btn{padding:6px 14px;border-radius:999px;font-size:.75rem;font-family:var(--mono);cursor:pointer;border:1px solid;transition:all .15s;user-select:none;}
+  .meal-toggle-btn.breakfast{border-color:var(--breakfast);color:var(--breakfast);background:transparent;}
+  .meal-toggle-btn.breakfast.on{background:rgba(247,183,49,.2);}
+  .meal-toggle-btn.coffee{border-color:var(--coffee);color:var(--coffee);background:transparent;}
+  .meal-toggle-btn.coffee.on{background:rgba(95,138,247,.2);}
+  .meal-toggle-btn.dinner{border-color:var(--dinner);color:var(--dinner);background:transparent;}
+  .meal-toggle-btn.dinner.on{background:rgba(232,67,147,.2);}
+  .form-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:.5rem;}
+  .btn-cancel{background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:9px 18px;border-radius:10px;font-family:var(--mono);font-size:.82rem;cursor:pointer;}
+  .btn-submit{background:rgba(200,241,53,.15);border:1px solid var(--accent);color:var(--accent);padding:9px 20px;border-radius:10px;font-family:var(--mono);font-size:.82rem;cursor:pointer;font-weight:600;}
+  .btn-submit:hover{background:rgba(200,241,53,.28);}
+
+  /* SCANNER */
+  #scanner-modal .modal{max-width:500px;}
+  #scanner-video-wrap{position:relative;border-radius:12px;overflow:hidden;background:#000;margin-bottom:1rem;aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;}
+  #scanner-video{width:100%;height:100%;object-fit:cover;display:block;}
+  #scanner-canvas{display:none;}
+  .scan-aim{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;}
+  .scan-aim-box{width:60%;aspect-ratio:1;border:2.5px solid var(--accent);border-radius:10px;box-shadow:0 0 0 9999px rgba(0,0,0,.5);}
+  #scanner-status{font-family:var(--mono);font-size:.8rem;text-align:center;padding:10px 12px;border-radius:8px;margin-bottom:1rem;background:var(--surface2);color:var(--muted);min-height:44px;line-height:1.5;white-space:pre-line;}
+  #scan-result-box{display:none;background:var(--surface2);border:1px solid var(--accent);border-radius:10px;padding:1rem;margin-bottom:1rem;}
+  #scan-result-box .r-name{font-weight:700;font-size:.95rem;margin-bottom:4px;color:var(--accent);}
+  #scan-result-box .r-detail{font-size:.75rem;font-family:var(--mono);color:var(--muted);margin-bottom:2px;}
+  .scan-btns{display:flex;flex-direction:column;gap:8px;}
+  .btn-scan-again{background:rgba(200,241,53,.1);border:1px solid var(--accent);color:var(--accent);padding:9px 18px;border-radius:10px;font-family:var(--mono);font-size:.82rem;cursor:pointer;width:100%;}
+  .btn-scan-again:hover{background:rgba(200,241,53,.22);}
+  .btn-upload-qr{background:rgba(95,138,247,.1);border:1px solid var(--coffee);color:var(--coffee);padding:9px 18px;border-radius:10px;font-family:var(--mono);font-size:.82rem;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:6px;}
+  .btn-upload-qr:hover{background:rgba(95,138,247,.22);}
+  .btn-stop-scan{background:rgba(232,67,147,.1);border:1px solid var(--dinner);color:var(--dinner);padding:9px 18px;border-radius:10px;font-family:var(--mono);font-size:.82rem;cursor:pointer;width:100%;}
+  .btn-stop-scan:hover{background:rgba(232,67,147,.22);}
+  #upload-qr-input{display:none;}
+
+  #toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--surface);border:1px solid var(--accent);color:var(--accent);font-family:var(--mono);font-size:.82rem;padding:10px 20px;border-radius:10px;transition:transform .3s ease;z-index:200;white-space:nowrap;}
+  #toast.show{transform:translateX(-50%) translateY(0);}
+
+  @media(max-width:600px){
+    .cards-grid{grid-template-columns:1fr;}
+    .visitors-grid{grid-template-columns:1fr;}
+    .form-grid{grid-template-columns:1fr;}
+    .form-grid .full{grid-column:1;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Event Manager</h1>
+  <p>Participants & Visitors — Meal Tracking</p>
+</header>
+
+<div class="stats">
+  <div class="stat-card"><div class="num" id="stat-teams">6</div><div class="label">teams</div></div>
+  <div class="stat-card"><div class="num" id="stat-participants">21</div><div class="label">participants</div></div>
+  <div class="stat-card"><div class="num" id="stat-visitors">4</div><div class="label">visitors</div></div>
+  <div class="stat-card"><div class="num">3</div><div class="label">meal slots</div></div>
+</div>
+
+<div class="meals-legend">
+  <div class="meal-pill breakfast"><span class="meal-dot"></span>Breakfast</div>
+  <div class="meal-pill coffee"><span class="meal-dot"></span>Coffee Pause</div>
+  <div class="meal-pill dinner"><span class="meal-dot"></span>Dinner</div>
+</div>
+
+<div class="toolbar">
+  <button class="btn btn-scan" onclick="openScanner()">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+      <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+    </svg>
+    Scan QR Code
+  </button>
+  <button class="btn btn-add" onclick="openAddModal()">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+    Add Participant
+  </button>
+  <button class="btn btn-export" onclick="exportQRCodes()">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+    Export QR Codes
+  </button>
+</div>
+
+<div class="section-title">Participant Teams</div>
+<div class="cards-grid" id="teams-grid"></div>
+
+<div class="section-title">Visitors</div>
+<div class="visitors-grid" id="visitors-grid"></div>
+
+<!-- ADD MODAL -->
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeAddModal()">✕</button>
+    <h2>+ Add Participant</h2>
+    <div class="form-grid">
+      <div class="field full"><label>Full Name</label><input type="text" id="f-name" placeholder="e.g. Ahmed Ben Ali"></div>
+      <div class="field"><label>Phone</label><input type="tel" id="f-phone" placeholder="e.g. 55123456"></div>
+      <div class="field"><label>University</label><input type="text" id="f-uni" placeholder="e.g. FSM"></div>
+      <div class="field full"><label>Email</label><input type="email" id="f-email" placeholder="e.g. ahmed@example.com"></div>
+      <div class="field full">
+        <label>Type</label>
+        <select id="f-type" onchange="updateTeamField()">
+          <option value="visitor">Visitor</option>
+          <option value="team-member">Team Member</option>
+          <option value="team-leader">Team Leader (new team)</option>
+        </select>
+      </div>
+      <div class="field full" id="team-field" style="display:none"><label>Team Name</label><input type="text" id="f-team" placeholder="e.g. CyberHawks"></div>
+      <div class="field full" id="existing-team-field" style="display:none">
+        <label>Select Team</label><select id="f-existing-team"></select>
+      </div>
+    </div>
+    <div style="font-size:.7rem;font-family:var(--mono);color:var(--muted);margin-bottom:10px;letter-spacing:1px;text-transform:uppercase;">Meals</div>
+    <div class="meals-toggle">
+      <span class="meal-toggle-btn breakfast on" onclick="this.classList.toggle('on')">☀ Breakfast</span>
+      <span class="meal-toggle-btn coffee on" onclick="this.classList.toggle('on')">☕ Coffee</span>
+      <span class="meal-toggle-btn dinner on" onclick="this.classList.toggle('on')">🍽 Dinner</span>
+    </div>
+    <div class="form-actions">
+      <button class="btn-cancel" onclick="closeAddModal()">Cancel</button>
+      <button class="btn-submit" onclick="submitAdd()">Add →</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCANNER MODAL -->
+<div class="modal-overlay" id="scanner-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeScanner()">✕</button>
+    <h2>🔍 Scan QR Code</h2>
+    <div id="scanner-video-wrap">
+      <video id="scanner-video" autoplay playsinline muted></video>
+      <canvas id="scanner-canvas"></canvas>
+      <div class="scan-aim"><div class="scan-aim-box"></div></div>
+    </div>
+    <div id="scanner-status">Starting camera…</div>
+    <div id="scan-result-box">
+      <div class="r-name" id="r-name"></div>
+      <div class="r-detail" id="r-team"></div>
+      <div class="r-detail" id="r-uni"></div>
+      <div class="r-detail" id="r-email"></div>
+      <div class="r-detail" id="r-phone"></div>
+      <div class="r-detail" id="r-meals"></div>
+    </div>
+    <div class="scan-btns">
+      <button class="btn-scan-again" id="btn-scan-again" style="display:none" onclick="resumeScanning()">🔄 Scan Another</button>
+      <label class="btn-upload-qr">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        Upload QR Image (no camera needed)
+        <input type="file" id="upload-qr-input" accept="image/*" onchange="handleQRImageUpload(event)">
+      </label>
+      <button class="btn-stop-scan" onclick="closeScanner()">✕ Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const CHECK_ICON = `<svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1.5,5 4,7.5 8.5,2.5"/></svg>`;
+
+/* ══════════════════════════ DATA ══════════════════════════ */
+const TEAMS = [
+  {
+    teamName:"0_Clicks",
+    leader:{name:"Mehdi Ben Feidia",phone:"50454106",email:"mehdibenfaidia@gmail.com",university:"Virginia University"},
+    members:[
+      {name:"Adam Zayene",   phone:"92169148",email:"adamzayene644@gmail.com",     university:"Virginia University"},
+      {name:"Yosri Yaakoubi",phone:"94878031",email:"technologieitech4@gmail.com", university:"Virginia University"},
+      {name:"Taha Ben Slama",phone:"94950595",email:"Tahabenslama2@gmail.com",     university:"Virginia University"}
+    ],
+    meals:{breakfast:true,coffee:true,dinner:true}
+  },
+  {
+    teamName:"GRIS-METALISE",
+    leader:{name:"Mohamed Khalil KRIDANE",phone:"93960253",email:"khalilkriden69@gmail.com",university:"Ecole Polytechnique de Sousse"},
+    members:[
+      {name:"Mohamed Beshir Chebli",phone:"58452650",email:"mohamedbechir.chbeli@polytechnicien.tn",university:"Ecole Polytechnique Sousse"},
+      {name:"Adem Methamam",        phone:"50333443",email:"methamemadam@gmail.com",              university:"Ecole Polytechnique Sousse"},
+      {name:"Oumaima Ksibi",        phone:"52504286",email:"oumaima.ksibi@polytechnicien.tn",      university:"Ecole Polytechnique Sousse"}
+    ],
+    meals:{breakfast:true,coffee:true,dinner:true}
+  },
+  {
+    teamName:"Kernel Panic",
+    leader:{name:"Maalel Ilyes",phone:"53826584",email:"ilyesmaalel9@gmail.com",university:"FSM"},
+    members:[
+      {name:"Ahmed Baha Eddine Ben Belgacem",phone:"94817700",email:"ahmedbelgacem833@gmail.com",university:"ISSATM"},
+      {name:"Ahmed Chahine Chaaouri",        phone:"29350980",email:"chahine.chaaouri@gmail.com",university:"FSM"}
+    ],
+    meals:{breakfast:true,coffee:true,dinner:true}
+  },
+  {
+    teamName:"0TR4C3",
+    leader:{name:"Yassine Msawra",phone:"42458583",email:"yassinemsawra30@gmail.com",university:"ISITCOM"},
+    members:[
+      {name:"Mohamed Zrig",phone:"24093999",email:"mohamedzrigue07@gmail.com",university:"IMSET"}
+    ],
+    meals:{breakfast:true,coffee:true,dinner:true}
+  },
+  {
+    teamName:"Hunt3rs",
+    leader:{name:"Mohamed Bennaima",phone:"25577542",email:"medbennaima2021@gmail.com",university:"ESPRIM"},
+    members:[
+      {name:"Ayoub Hamrouni",                phone:"94190050",email:"ayoubhamruni@gmail.com",             university:"FSS"},
+      {name:"Houssem Eddine Belkadhi",       phone:"94727471",email:"houssemeddinebelkadhi256@gmail.com", university:"ISIMA"},
+      {name:"MASSIMA-NZAMBI Brel Hein Rich", phone:"55781043",email:"brelmassima1@gmail.com",             university:"ESPRIM"}
+    ],
+    meals:{breakfast:true,coffee:true,dinner:true}
+  },
+  {
+    teamName:"Chaw9IEEEt",
+    leader:{name:"Nadia Chelly",phone:"50973511",email:"nadia.chellysj@gmail.com",university:"ISIMA"},
+    members:[
+      {name:"Imen Othmen",   phone:"27386235",email:"Imen.othmen@ieee.org",   university:"ISIMA"},
+      {name:"Roua Ghodhbene",phone:"58459372",email:"rouaghodhbene@gmail.com",university:"ISIMA"}
+    ],
+    meals:{breakfast:true,coffee:true,dinner:true}
+  }
+];
+
+const VISITORS = [
+  {name:"Soussia Jawhar", phone:"93508293",email:"soussiajawhar2@gmail.com", university:"ISIMM",meals:{breakfast:true,coffee:true,dinner:true}},
+  {name:"Achraf Lamari",  phone:"99105523",email:"achraaflaamari@gmail.com", university:"ISIMM",meals:{breakfast:true,coffee:true,dinner:true}},
+  {name:"Mohamed Abouzar",phone:"52827277",email:"abouzarmoh@gmail.com",     university:"FSM",  meals:{breakfast:true,coffee:true,dinner:true}},
+  {name:"Guitouni Manar", phone:"93863261",email:"guitounimanar2000@gmail.com",university:"FSM",meals:{breakfast:true,coffee:true,dinner:true}}
+];
+
+/* ══════════════════════════ HELPERS ══════════════════════════ */
+function initials(n){return n.trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();}
+
+function buildQRData(person,team){
+  return JSON.stringify({
+    name:person.name,email:person.email,phone:person.phone,
+    university:person.university,team:team||'visitor',
+    meals:person.meals||{breakfast:true,coffee:true,dinner:true}
+  });
+}
+
+function mealsHTML(m){
+  let h='';
+  if(m.breakfast)h+=`<span class="meal-check breakfast">${CHECK_ICON} Breakfast</span>`;
+  if(m.coffee)   h+=`<span class="meal-check coffee">${CHECK_ICON} Coffee</span>`;
+  if(m.dinner)   h+=`<span class="meal-check dinner">${CHECK_ICON} Dinner</span>`;
+  return h;
+}
+
+function mealDots(m){
+  let h='';
+  if(m.breakfast)h+=`<span class="meal-dot-sm breakfast" title="Breakfast"></span>`;
+  if(m.coffee)   h+=`<span class="meal-dot-sm coffee" title="Coffee"></span>`;
+  if(m.dinner)   h+=`<span class="meal-dot-sm dinner" title="Dinner"></span>`;
+  return h;
+}
+
+/* ══════════════════════════ QR QUEUE ══════════════════════════ */
+// Registry for export: { name, team, role, university, email, phone, meals, qrData }
+const EXPORT_REGISTRY = [];
+let qrQueue = [];
+let qrCounter = 0;
+
+function scheduleQR(id,data,size){qrQueue.push({id,data,size});}
+
+function flushQRQueue(){
+  qrQueue.forEach(item=>{
+    const el=document.getElementById(item.id);
+    if(!el||el.children.length>0)return;
+    try{
+      new QRCode(el,{text:item.data,width:item.size,height:item.size,
+        colorDark:"#000000",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.M});
+    }catch(e){
+      el.innerHTML=`<div style="width:${item.size}px;height:${item.size}px;background:#333;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#888">QR</div>`;
+    }
+  });
+}
+
+/* ══════════════════════════ RENDER ══════════════════════════ */
+function renderParticipantRow(person,teamName,isLeader,meals){
+  const qrId=`qr-p-${qrCounter++}`;
+  const qrData=buildQRData({...person,meals},teamName);
+  scheduleQR(qrId,qrData,60);
+  EXPORT_REGISTRY.push({name:person.name,team:teamName,role:isLeader?'Leader':'Member',
+    university:person.university,email:person.email,phone:person.phone,meals,qrData});
+  return `
+    <div class="participant-row">
+      <div class="avatar ${isLeader?'leader':''}">${initials(person.name)}</div>
+      <div class="p-info">
+        <div class="p-name">${person.name}</div>
+        <div class="p-uni">${person.university}</div>
+        <div class="p-email">${person.email}</div>
+        <div class="p-tags">${isLeader?'<span class="leader-tag">Leader</span>':''}${mealDots(meals)}</div>
+      </div>
+      <div class="p-qr" id="${qrId}"></div>
+    </div>`;
+}
+
+function renderTeams(){
+  const grid=document.getElementById('teams-grid');
+  TEAMS.forEach((team,ti)=>{
+    const card=document.createElement('div');
+    card.className='team-card';
+    card.dataset.teamIdx=ti;
+    const all=[{...team.leader,isLeader:true},...team.members.map(m=>({...m,isLeader:false}))];
+    const rows=all.map(m=>renderParticipantRow(m,team.teamName,m.isLeader,team.meals)).join('');
+    card.innerHTML=`
+      <div class="card-header">
+        <div><div class="team-name">${team.teamName}</div>
+        <div class="team-meta">${team.leader.phone} &nbsp;·&nbsp; ${team.leader.email}</div></div>
+        <span class="size-badge">${all.length} member${all.length!==1?'s':''}</span>
+      </div>${rows}`;
+    grid.appendChild(card);
+  });
+}
+
+function renderVisitors(){
+  const grid=document.getElementById('visitors-grid');
+  VISITORS.forEach((v,vi)=>{
+    const qrId=`qr-visitor-${vi}`;
+    const qrData=buildQRData(v,null);
+    const card=document.createElement('div');
+    card.className='visitor-card';
+    card.innerHTML=`
+      <div class="avatar">${initials(v.name)}</div>
+      <div class="visitor-info">
+        <div class="visitor-name">${v.name}</div>
+        <div class="visitor-detail">${v.university}</div>
+        <div class="visitor-detail">${v.email}</div>
+        <div class="visitor-detail">${v.phone}</div>
+        <div class="visitor-meals">${mealsHTML(v.meals)}</div>
+      </div>
+      <div class="visitor-qr" id="${qrId}"></div>`;
+    grid.appendChild(card);
+    scheduleQR(qrId,qrData,62);
+    EXPORT_REGISTRY.push({name:v.name,team:'visitor',role:'Visitor',
+      university:v.university,email:v.email,phone:v.phone,meals:v.meals,qrData});
+  });
+}
+
+function updateStats(){
+  const total=TEAMS.reduce((s,t)=>s+1+t.members.length,0);
+  document.getElementById('stat-teams').textContent=TEAMS.length;
+  document.getElementById('stat-participants').textContent=total;
+  document.getElementById('stat-visitors').textContent=VISITORS.length;
+}
+
+/* ══════════════════════════ EXPORT ══════════════════════════ */
+function exportQRCodes(){
+  showToast('⏳ Building QR export…');
+  const SIZE=160;
+
+  // Render each QR into a temp off-screen div, grab canvas dataURL
+  const tasks=EXPORT_REGISTRY.map(p=>new Promise(resolve=>{
+    const wrap=document.createElement('div');
+    wrap.style.cssText='position:fixed;left:-9999px;top:-9999px;';
+    document.body.appendChild(wrap);
+    try{
+      new QRCode(wrap,{text:p.qrData,width:SIZE,height:SIZE,
+        colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
+    }catch(e){}
+    // QRCode renders async (creates img then canvas) — wait a tick
+    setTimeout(()=>{
+      let src='';
+      const canvas=wrap.querySelector('canvas');
+      const img=wrap.querySelector('img');
+      if(canvas) src=canvas.toDataURL('image/png');
+      else if(img) src=img.src;
+      document.body.removeChild(wrap);
+      resolve({...p,src});
+    },200);
+  }));
+
+  Promise.all(tasks).then(persons=>{
+    const mealStr=m=>[
+      m.breakfast&&'☀ Breakfast',
+      m.coffee&&'☕ Coffee',
+      m.dinner&&'🍽 Dinner'
+    ].filter(Boolean).join(' · ')||'—';
+
+    const teamGroups={};
+    persons.forEach(p=>{
+      const g=p.team==='visitor'?'👤 Visitors':`⚡ Team: ${p.team}`;
+      if(!teamGroups[g])teamGroups[g]=[];
+      teamGroups[g].push(p);
+    });
+
+    let sectionsHTML='';
+    Object.entries(teamGroups).forEach(([group,list])=>{
+      const cards=list.map(p=>`
+        <div class="qr-card">
+          <div class="qr-wrap">
+            ${p.src?`<img src="${p.src}" width="${SIZE}" height="${SIZE}">`:'<div class="qr-ph">QR</div>'}
+          </div>
+          <div class="qr-name">${p.name}</div>
+          <div class="qr-role">${p.role==='Leader'?'⭐ Leader':'Member'}</div>
+          <div class="qr-uni">${p.university||''}</div>
+          <div class="qr-meals">${mealStr(p.meals)}</div>
+        </div>`).join('');
+      sectionsHTML+=`<div class="group-title">${group}</div><div class="grid">${cards}</div>`;
+    });
+
+    const html=`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>QR Codes — All Participants</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#f2f3f7;padding:2rem;color:#111;}
+  h1{text-align:center;font-size:1.8rem;font-weight:800;margin-bottom:.3rem;color:#1a1a2e;}
+  .sub{text-align:center;color:#777;font-size:.85rem;margin-bottom:1.5rem;}
+  .print-btn{display:flex;align-items:center;gap:8px;margin:0 auto 2rem;padding:11px 28px;
+    background:#7c5cfc;color:#fff;border:none;border-radius:10px;font-size:.95rem;cursor:pointer;}
+  .print-btn:hover{background:#6040e0;}
+  .group-title{font-size:.75rem;font-weight:700;letter-spacing:3px;text-transform:uppercase;
+    color:#7c5cfc;border-left:4px solid #7c5cfc;padding-left:10px;margin:2rem 0 1rem;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:1rem;margin-bottom:1rem;}
+  .qr-card{background:#fff;border-radius:12px;border:1px solid #e0e0ee;padding:1rem;text-align:center;
+    box-shadow:0 2px 10px rgba(0,0,0,.07);break-inside:avoid;}
+  .qr-wrap{display:flex;justify-content:center;margin-bottom:.7rem;}
+  .qr-wrap img{border-radius:6px;border:3px solid #eee;}
+  .qr-ph{width:${SIZE}px;height:${SIZE}px;background:#eee;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#aaa;font-size:.8rem;}
+  .qr-name{font-weight:800;font-size:.88rem;margin-bottom:3px;line-height:1.3;}
+  .qr-role{font-size:.72rem;color:#7c5cfc;font-weight:600;margin-bottom:2px;}
+  .qr-uni{font-size:.68rem;color:#999;margin-bottom:5px;}
+  .qr-meals{font-size:.66rem;color:#555;background:#f4f4fb;padding:3px 9px;border-radius:999px;display:inline-block;}
+  @media print{
+    .print-btn{display:none;}
+    body{background:#fff;padding:.5rem;}
+    .grid{gap:.7rem;}
+    .qr-card{box-shadow:none;border:1px solid #ddd;}
+  }
+</style>
+</head>
+<body>
+<h1>📋 Event QR Codes</h1>
+<p class="sub">${persons.length} participants — ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}</p>
+<button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+${sectionsHTML}
+</body>
+</html>`;
+
+    const blob=new Blob([html],{type:'text/html'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download='event-qr-codes.html';
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),5000);
+    showToast(`✓ Exported ${persons.length} QR cards`);
+  });
+}
+
+/* ══════════════════════════ ADD MODAL ══════════════════════════ */
+function openAddModal(){
+  document.getElementById('f-existing-team').innerHTML=
+    TEAMS.map((t,i)=>`<option value="${i}">${t.teamName}</option>`).join('');
+  document.getElementById('add-modal').classList.add('open');
+}
+function closeAddModal(){
+  document.getElementById('add-modal').classList.remove('open');
+  ['f-name','f-phone','f-uni','f-email','f-team'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-type').value='visitor';
+  updateTeamField();
+  document.querySelectorAll('.meal-toggle-btn').forEach(b=>b.classList.add('on'));
+}
+function updateTeamField(){
+  const t=document.getElementById('f-type').value;
+  document.getElementById('team-field').style.display         =(t==='team-leader')?'block':'none';
+  document.getElementById('existing-team-field').style.display=(t==='team-member') ?'block':'none';
+}
+
+function submitAdd(){
+  const name =document.getElementById('f-name').value.trim();
+  const phone=document.getElementById('f-phone').value.trim();
+  const uni  =document.getElementById('f-uni').value.trim();
+  const email=document.getElementById('f-email').value.trim();
+  const type =document.getElementById('f-type').value;
+  if(!name){showToast('⚠ Name is required');return;}
+  const meals={
+    breakfast:document.querySelector('.meal-toggle-btn.breakfast').classList.contains('on'),
+    coffee:   document.querySelector('.meal-toggle-btn.coffee').classList.contains('on'),
+    dinner:   document.querySelector('.meal-toggle-btn.dinner').classList.contains('on')
+  };
+  const person={name,phone,email,university:uni,meals};
+
+  if(type==='visitor'){
+    VISITORS.push(person);renderNewVisitor(person,VISITORS.length-1);
+  }else if(type==='team-leader'){
+    const tn=document.getElementById('f-team').value.trim()||'New Team';
+    const nt={teamName:tn,leader:person,members:[],meals};
+    TEAMS.push(nt);renderNewTeamCard(nt,TEAMS.length-1);
+  }else{
+    const ti=parseInt(document.getElementById('f-existing-team').value);
+    TEAMS[ti].members.push(person);addMemberToTeamCard(person,ti);
+  }
+  updateStats();closeAddModal();showToast(`✓ ${name} added`);
+  setTimeout(flushQRQueue,150);
+}
+
+function renderNewVisitor(v,vi){
+  const grid=document.getElementById('visitors-grid');
+  const qrId=`qr-visitor-${vi}`;
+  const qrData=buildQRData(v,null);
+  const card=document.createElement('div');
+  card.className='visitor-card';
+  card.innerHTML=`
+    <div class="avatar">${initials(v.name)}</div>
+    <div class="visitor-info">
+      <div class="visitor-name">${v.name}</div>
+      <div class="visitor-detail">${v.university}</div>
+      <div class="visitor-detail">${v.email}</div>
+      <div class="visitor-detail">${v.phone}</div>
+      <div class="visitor-meals">${mealsHTML(v.meals)}</div>
+    </div>
+    <div class="visitor-qr" id="${qrId}"></div>`;
+  grid.appendChild(card);
+  scheduleQR(qrId,qrData,62);
+  EXPORT_REGISTRY.push({name:v.name,team:'visitor',role:'Visitor',
+    university:v.university,email:v.email,phone:v.phone,meals:v.meals,qrData});
+}
+
+function renderNewTeamCard(team,ti){
+  const grid=document.getElementById('teams-grid');
+  const card=document.createElement('div');
+  card.className='team-card';card.dataset.teamIdx=ti;
+  const rowHTML=renderParticipantRow(team.leader,team.teamName,true,team.meals);
+  card.innerHTML=`
+    <div class="card-header">
+      <div><div class="team-name">${team.teamName}</div>
+      <div class="team-meta">${team.leader.phone} &nbsp;·&nbsp; ${team.leader.email}</div></div>
+      <span class="size-badge" id="badge-${ti}">1 member</span>
+    </div>
+    <div class="members-body" id="members-body-${ti}">${rowHTML}</div>`;
+  grid.appendChild(card);
+}
+
+function addMemberToTeamCard(person,ti){
+  const team=TEAMS[ti];
+  let body=document.getElementById(`members-body-${ti}`);
+  if(!body){
+    const card=document.querySelector(`.team-card[data-team-idx="${ti}"]`);
+    if(card){
+      body=card.querySelector('.members-body');
+      if(!body){
+        body=document.createElement('div');body.className='members-body';body.id=`members-body-${ti}`;
+        [...card.querySelectorAll('.participant-row')].forEach(r=>body.appendChild(r));
+        card.appendChild(body);
+      }
+    }
+  }
+  if(body){const d=document.createElement('div');d.innerHTML=renderParticipantRow(person,team.teamName,false,team.meals);body.appendChild(d.firstElementChild);}
+  const total=1+team.members.length;
+  const badge=document.getElementById(`badge-${ti}`)||document.querySelector(`.team-card[data-team-idx="${ti}"] .size-badge`);
+  if(badge)badge.textContent=`${total} member${total!==1?'s':''}`;
+}
+
+/* ══════════════════════════ SCANNER ══════════════════════════ */
+let scanStream=null;
+let scanAnimFrame=null;
+let barcodeDetector=null;
+
+// Prefer native BarcodeDetector (Chrome 83+, Edge, Android) — no extra setup
+if('BarcodeDetector' in window){
+  try{ barcodeDetector=new BarcodeDetector({formats:['qr_code']}); }catch(e){}
+}
+
+function openScanner(){
+  document.getElementById('scanner-modal').classList.add('open');
+  document.getElementById('scan-result-box').style.display='none';
+  document.getElementById('btn-scan-again').style.display='none';
+  setStatus('Starting camera…','var(--muted)');
+  startCamera();
+}
+
+function closeScanner(){
+  stopCamera();
+  document.getElementById('scanner-modal').classList.remove('open');
+  document.getElementById('scan-result-box').style.display='none';
+  document.getElementById('btn-scan-again').style.display='none';
+}
+
+function resumeScanning(){
+  document.getElementById('scan-result-box').style.display='none';
+  document.getElementById('btn-scan-again').style.display='none';
+  setStatus('📷 Point at a QR code…','var(--accent)');
+  if(scanStream){ scanAnimFrame=requestAnimationFrame(scanFrame); }
+  else{ startCamera(); }
+}
+
+function setStatus(msg,color){
+  const s=document.getElementById('scanner-status');
+  s.textContent=msg; s.style.color=color||'var(--muted)';
+}
+
+async function startCamera(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    setStatus('⚠ Camera not available here.\nUse the "Upload QR Image" button below instead.','var(--dinner)');
+    return;
+  }
+  setStatus('Requesting camera permission…','var(--muted)');
+  try{
+    let stream;
+    try{
+      stream=await navigator.mediaDevices.getUserMedia({
+        video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:1280}}
+      });
+    }catch(e1){
+      // Retry with minimal constraints (some devices reject facingMode)
+      stream=await navigator.mediaDevices.getUserMedia({video:true});
+    }
+    scanStream=stream;
+    const video=document.getElementById('scanner-video');
+    video.srcObject=stream;
+    video.onloadedmetadata=async ()=>{
+      try{ await video.play(); }catch(e){}
+      setStatus('📷 Camera ready — point at a QR code','var(--accent)');
+      if(scanAnimFrame)cancelAnimationFrame(scanAnimFrame);
+      scanAnimFrame=requestAnimationFrame(scanFrame);
+    };
+  }catch(err){
+    let msg='';
+    if(err.name==='NotAllowedError'||err.name==='PermissionDeniedError'){
+      msg='🚫 Camera permission denied.\nPlease allow camera access when prompted.\nOr use "Upload QR Image" below.';
+    }else if(err.name==='NotFoundError'){
+      msg='🚫 No camera found on this device.\nUse "Upload QR Image" below.';
+    }else if(err.name==='NotReadableError'){
+      msg='🚫 Camera is in use by another app.\nClose it and try again, or upload an image.';
+    }else{
+      msg=`🚫 ${err.name}: ${err.message}\nTry "Upload QR Image" below.`;
+    }
+    setStatus(msg,'var(--dinner)');
+  }
+}
+
+function stopCamera(){
+  if(scanAnimFrame){cancelAnimationFrame(scanAnimFrame);scanAnimFrame=null;}
+  if(scanStream){scanStream.getTracks().forEach(t=>t.stop());scanStream=null;}
+  const v=document.getElementById('scanner-video');
+  v.srcObject=null;
+}
+
+async function scanFrame(){
+  const video=document.getElementById('scanner-video');
+  if(!scanStream||!video.srcObject)return;
+  if(video.readyState<video.HAVE_ENOUGH_DATA||!video.videoWidth){
+    scanAnimFrame=requestAnimationFrame(scanFrame);return;
+  }
+
+  let result=null;
+
+  // 1. Try native BarcodeDetector (fastest)
+  if(barcodeDetector){
+    try{
+      const codes=await barcodeDetector.detect(video);
+      if(codes.length)result=codes[0].rawValue;
+    }catch(e){barcodeDetector=null;}
+  }
+
+  // 2. Fallback: jsQR via canvas
+  if(!result){
+    const canvas=document.getElementById('scanner-canvas');
+    const w=video.videoWidth, h=video.videoHeight;
+    if(w&&h){
+      canvas.width=w;canvas.height=h;
+      const ctx=canvas.getContext('2d',{willReadFrequently:true});
+      ctx.drawImage(video,0,0,w,h);
+      const id=ctx.getImageData(0,0,w,h);
+      const code=jsQR(id.data,w,h,{inversionAttempts:'attemptBoth'});
+      if(code)result=code.data;
+    }
+  }
+
+  if(result){displayScanResult(result);return;}
+  scanAnimFrame=requestAnimationFrame(scanFrame);
+}
+
+// Upload a QR image file and decode it with jsQR
+function handleQRImageUpload(e){
+  const file=e.target.files[0];
+  if(!file)return;
+  setStatus('Reading image…','var(--muted)');
+  const reader=new FileReader();
+  reader.onload=evt=>{
+    const img=new Image();
+    img.onload=()=>{
+      const canvas=document.createElement('canvas');
+      canvas.width=img.width;canvas.height=img.height;
+      canvas.getContext('2d').drawImage(img,0,0);
+      const id=canvas.getContext('2d').getImageData(0,0,img.width,img.height);
+      const code=jsQR(id.data,id.width,id.height,{inversionAttempts:'attemptBoth'});
+      if(code){displayScanResult(code.data);}
+      else{setStatus('⚠ No QR code found in image.\nTry a higher-res or clearer photo.','var(--dinner)');}
+    };
+    img.onerror=()=>setStatus('⚠ Could not load image.','var(--dinner)');
+    img.src=evt.target.result;
+  };
+  reader.readAsDataURL(file);
+  e.target.value=''; // allow re-upload of same file
+}
+
+function displayScanResult(raw){
+  setStatus('✅ QR scanned!','var(--accent)');
+  document.getElementById('btn-scan-again').style.display='block';
+
+  let data;
+  try{data=JSON.parse(raw);}catch(e){data=null;}
+
+  if(data&&data.name){
+    document.getElementById('r-name').textContent  =data.name;
+    document.getElementById('r-team').textContent  =data.team   ?`Team: ${data.team}`:'';
+    document.getElementById('r-uni').textContent   =data.university?`🎓 ${data.university}`:'';
+    document.getElementById('r-email').textContent =data.email  ?`✉ ${data.email}`:'';
+    document.getElementById('r-phone').textContent =data.phone  ?`📞 ${data.phone}`:'';
+    const m=data.meals||{};
+    document.getElementById('r-meals').textContent=
+      [m.breakfast&&'☀ Breakfast',m.coffee&&'☕ Coffee',m.dinner&&'🍽 Dinner']
+        .filter(Boolean).join(' · ')||'';
+    document.getElementById('scan-result-box').style.display='block';
+    showToast(`✓ ${data.name}`);
+  }else{
+    document.getElementById('r-name').textContent=raw.slice(0,120);
+    ['r-team','r-uni','r-email','r-phone','r-meals'].forEach(id=>document.getElementById(id).textContent='');
+    document.getElementById('scan-result-box').style.display='block';
+  }
+}
+
+/* ══════════════════════════ TOAST ══════════════════════════ */
+let toastTimer;
+function showToast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove('show'),3000);
+}
+
+/* ══════════════════════════ INIT ══════════════════════════ */
+renderTeams();
+renderVisitors();
+updateStats();
+window.addEventListener('load',()=>setTimeout(flushQRQueue,300));
+
+document.querySelectorAll('.modal-overlay').forEach(o=>{
+  o.addEventListener('click',e=>{
+    if(e.target===o){o.id==='scanner-modal'?closeScanner():closeAddModal();}
+  });
+});
+</script>
+</body>
+</html>
